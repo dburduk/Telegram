@@ -1,7 +1,7 @@
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java
 --- a/TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java
-@@ -242,29 +242,33 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
+@@ -242,23 +242,26 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
      private boolean tabletLayout;
      public void updateLayout() {
 -//        if (tabletLayout == AndroidUtilities.isTablet()) return;
