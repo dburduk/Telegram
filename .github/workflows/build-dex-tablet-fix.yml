@@ -14,12 +14,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -34,8 +34,67 @@ jobs:
             "ndk;27.2.12479018" \
             "cmake;3.22.1"
 
-      - name: Apply DeX tablet patch
-        run: git apply --check dex-tablet-fix.patch && git apply dex-tablet-fix.patch
+      - name: Apply DeX tablet fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java')
+          text = path.read_text()
+          old = '''    private boolean tabletLayout;
+              public void updateLayout() {
+          //        if (tabletLayout == AndroidUtilities.isTablet()) return;
+          //        tabletLayout = AndroidUtilities.isTablet();
+          //
+          //        final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
+          //        final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
+          //        int bottomMargin = isUpdateLayoutVisible ? (navigationBarHeight + updateLayoutHeight) : 0;
+          //        if (tabletLayout) {
+          //            bottomMargin = Math.max(bottomMargin, navigationBarHeight + dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS));
+          //        }
+          //        final FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL);
+          //        if (tabletLayout) {
+          //            lp.leftMargin = dp(6);
+          //            lp.rightMargin = dp(6);
+          //            lp.topMargin = dp(6);
+          //        }
+          //        lp.bottomMargin = bottomMargin;
+          //
+          //        viewPager.setLayoutParams(lp);
+          //        viewPager.setTabletLayout(tabletLayout);
+          //        checkUi_fadeView();
+              }'''.replace('          ', '')
+          new = '''    private boolean tabletLayout;
+              public void updateLayout() {
+                  final boolean isTablet = AndroidUtilities.isTablet();
+                  if (tabletLayout == isTablet && viewPager != null) return;
+                  tabletLayout = isTablet;
+          
+                  final boolean isUpdateLayoutVisible = updateLayoutWrapper != null && updateLayoutWrapper.isUpdateLayoutVisible();
+                  final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
+                  int bottomMargin = isUpdateLayoutVisible ? (navigationBarHeight + updateLayoutHeight) : 0;
+                  if (tabletLayout) {
+                      bottomMargin = Math.max(bottomMargin, navigationBarHeight + dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS));
+                  }
+                  final FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL);
+                  if (tabletLayout) {
+                      lp.leftMargin = dp(6);
+                      lp.rightMargin = dp(6);
+                      lp.topMargin = dp(6);
+                  }
+                  lp.bottomMargin = bottomMargin;
+          
+                  if (viewPager != null) {
+                      viewPager.setLayoutParams(lp);
+                      viewPager.setTabletLayout(tabletLayout);
+                  }
+                  checkUi_fadeView();
+              }'''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('Expected updateLayout block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+          git diff -- TMessagesProj/src/main/java/org/telegram/ui/MainTabsActivity.java
 
       - name: Build debug APK
         run: ./gradlew :TMessagesProj_App:assembleAfatDebug --stacktrace --no-daemon
