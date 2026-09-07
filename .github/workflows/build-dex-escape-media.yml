@@ -1,0 +1,47 @@
+name: Build DeX combined test APK
+
+on:
+  push:
+    branches: [dex-escape-media-viewer]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Navigation and Escape regression checks
+        run: python3 tests/dex/run.py
+      - name: Install Android build packages
+        shell: bash
+        run: |
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Build test APK
+        run: ./gradlew :TMessagesProj_App:assembleAfatDebug --stacktrace --no-daemon
+      - name: Collect and verify APK
+        shell: bash
+        run: |
+          mkdir -p out
+          mapfile -t apks < <(find TMessagesProj_App/build/outputs/apk -type f -name '*.apk')
+          test "${#apks[@]}" -eq 1
+          cp "${apks[0]}" out/telegram-dex-combined.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-combined.apk
+          git rev-parse HEAD > out/commit.txt
+          cd out
+          sha256sum telegram-dex-combined.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: telegram-dex-combined
+          path: out/
+          if-no-files-found: error

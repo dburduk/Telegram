@@ -8532,10 +8532,11 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     return true;
                 }
             }
-            if (
+            // Authentication belongs to the modal stack, even when opened from right-pane settings.
+            if (!(fragment instanceof LoginActivity) && (
                 fragment instanceof ChatActivity && !((ChatActivity) fragment).isInScheduleMode() || params.forceRightLayout ||
                 layout == rightActionBarLayout && (rightActionBarLayout.getFragmentStack().size() > 1 || !(rightActionBarLayout.getLastFragment() instanceof ChatActivity))
-            ) {
+            )) {
                 if (!tabletFullSize && layout == rightActionBarLayout || tabletFullSize && layout == actionBarLayout) {
                     if (layout == rightActionBarLayout) {
                         if (rightActionBarLayout.getView() != null) {

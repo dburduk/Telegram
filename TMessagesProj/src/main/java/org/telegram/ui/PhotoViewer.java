@@ -23559,6 +23559,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         @Override
         public boolean dispatchKeyEvent(KeyEvent event) {
             int keyCode = event.getKeyCode();
+            if (handleEscapeKey(event)) {
+                return true;
+            }
             if (!muteVideo && sendPhotoType != SELECT_TYPE_AVATAR && isCurrentVideo && videoPlayer != null && event.getRepeatCount() == 0 && event.getAction() == KeyEvent.ACTION_DOWN && (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_UP || event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_DOWN)) {
                 videoPlayer.setVolume(1.0f);
             }
@@ -23690,6 +23693,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
         @Override
         public boolean dispatchKeyEventPreIme(KeyEvent event) {
+            if (handleEscapeKey(event)) {
+                return true;
+            }
             if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
                 if (textSelectionHelper.isInSelectionMode()) {
                     textSelectionHelper.clear();
@@ -23706,6 +23712,25 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 return true;
             }
             return super.dispatchKeyEventPreIme(event);
+        }
+
+        private boolean handleEscapeKey(KeyEvent event) {
+            if (event == null || event.getKeyCode() != KeyEvent.KEYCODE_ESCAPE) {
+                return false;
+            }
+            // Consume down, repeats and up so DeX cannot treat Escape as an activity-level Back.
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                if (textSelectionHelper.isInSelectionMode()) {
+                    textSelectionHelper.clear();
+                } else if (ContentPreviewViewer.getInstance().isVisible()) {
+                    ContentPreviewViewer.getInstance().closeWithMenu();
+                } else if (isCaptionOpen()) {
+                    closeCaptionEnter(true);
+                } else {
+                    closePhoto(true, false);
+                }
+            }
+            return true;
         }
 
         @Override

@@ -1,0 +1,148 @@
+import java.util.*;
+
+public class Regression {
+    static void check(boolean value, String message) {
+        if (!value) throw new AssertionError(message);
+    }
+    static class View {
+        static final int VISIBLE = 0, GONE = 8;
+        int visibility = GONE;
+        void setVisibility(int value) { visibility = value; }
+        void setBackgroundColor(int value) {}
+    }
+    static class Bundle {
+        int getInt(String key, int fallback) { return fallback; }
+        long getLong(String key, long fallback) { return fallback; }
+    }
+    static class BaseFragment {}
+    static class MainTabsActivity extends BaseFragment {}
+    static class LoginActivity extends BaseFragment {}
+    static class DialogsActivity extends BaseFragment {
+        boolean isMainDialogList() { return true; }
+        Bundle getArguments() { return null; }
+    }
+    static class ChatActivity extends BaseFragment {
+        boolean isInScheduleMode() { return false; }
+    }
+    static class AndroidUtilities {
+        static boolean tablet = true;
+        static boolean isTablet() { return tablet; }
+    }
+    static class ArticleViewer {
+        static boolean hasInstance() { return false; }
+        static ArticleViewer getInstance() { return new ArticleViewer(); }
+        boolean isVisible() { return false; }
+        void close(boolean a, boolean b) {}
+    }
+    static class UserConfig {
+        static final int MAX_ACCOUNT_COUNT = 4;
+        static UserConfig getInstance(int i) { return new UserConfig(); }
+        boolean isClientActivated() { return true; }
+    }
+    static class INavigationLayout {
+        static class NavigationParams {
+            BaseFragment fragment;
+            boolean removeLast, noAnimation, forceRightLayout;
+            NavigationParams(BaseFragment f) { fragment = f; }
+            NavigationParams setRemoveLast(boolean b) { removeLast = b; return this; }
+            NavigationParams setNoAnimation(boolean b) { noAnimation = b; return this; }
+            NavigationParams setCheckPresentFromDelegate(boolean b) { return this; }
+        }
+        List<BaseFragment> stack = new ArrayList<>();
+        View view = new View();
+        List<BaseFragment> getFragmentStack() { return stack; }
+        BaseFragment getLastFragment() { return stack.isEmpty() ? null : stack.get(stack.size() - 1); }
+        View getView() { return view; }
+        void removeAllFragments() { stack.clear(); }
+        void removeFragmentFromStack(BaseFragment f) { stack.remove(f); }
+        void closeLastFragment(boolean animated) { if (!stack.isEmpty()) stack.remove(stack.size() - 1); }
+        void presentFragment(NavigationParams p) {
+            if (p.removeLast) closeLastFragment(false);
+            stack.add(p.fragment);
+        }
+    }
+    INavigationLayout actionBarLayout = new INavigationLayout();
+    INavigationLayout rightActionBarLayout = new INavigationLayout();
+    INavigationLayout layersActionBarLayout = new INavigationLayout();
+    View backgroundTablet = new View(), shadowTablet = new View();
+    boolean tabletFullSize;
+    INavigationLayout getActionBarLayout() { return actionBarLayout; }
+    /* ROUTING */
+
+    static class KeyEvent {
+        static final int KEYCODE_ESCAPE = 111, ACTION_UP = 1, ACTION_DOWN = 0;
+        int action, code; boolean canceled;
+        KeyEvent(int action, int code) { this.action = action; this.code = code; }
+        int getAction() { return action; }
+        int getKeyCode() { return code; }
+        boolean isCanceled() { return canceled; }
+    }
+    static class Selection {
+        boolean selected;
+        boolean isInSelectionMode() { return selected; }
+        void clear() { selected = false; }
+    }
+    static class ContentPreviewViewer {
+        static ContentPreviewViewer instance = new ContentPreviewViewer();
+        boolean visible;
+        static ContentPreviewViewer getInstance() { return instance; }
+        boolean isVisible() { return visible; }
+        void closeWithMenu() { visible = false; }
+    }
+    Selection textSelectionHelper = new Selection();
+    boolean caption;
+    int closed;
+    boolean isCaptionOpen() { return caption; }
+    void closeCaptionEnter(boolean animated) { caption = false; }
+    void closePhoto(boolean animated, boolean fromEditMode) { closed++; }
+    /* ESCAPE */
+
+    public static void main(String[] args) {
+        for (boolean full : new boolean[] {false, true}) {
+            for (int origin = 0; origin < 3; origin++) {
+                Regression r = new Regression();
+                r.tabletFullSize = full;
+                BaseFragment settings = new BaseFragment();
+                r.actionBarLayout.stack.add(new MainTabsActivity());
+                r.rightActionBarLayout.stack.add(settings);
+                INavigationLayout from = origin == 0 ? r.actionBarLayout : origin == 1 ? r.rightActionBarLayout : r.layersActionBarLayout;
+                LoginActivity login = new LoginActivity();
+                INavigationLayout.NavigationParams p = new INavigationLayout.NavigationParams(login);
+                boolean local = r.needPresentFragment(from, p);
+                if (local) from.presentFragment(p);
+                check(r.layersActionBarLayout.getLastFragment() == login, "Login must use modal layer: full=" + full + " origin=" + origin);
+                check(r.rightActionBarLayout.getLastFragment() == settings, "Preserve right settings when opening login");
+                check(r.actionBarLayout.stack.size() == 1, "Preserve main stack");
+                r.layersActionBarLayout.closeLastFragment(false);
+                check(r.rightActionBarLayout.getLastFragment() == settings, "Cancel returns to same settings");
+            }
+        }
+        Regression chat = new Regression();
+        ChatActivity fragment = new ChatActivity();
+        chat.needPresentFragment(chat.actionBarLayout, new INavigationLayout.NavigationParams(fragment));
+        check(chat.rightActionBarLayout.getLastFragment() == fragment, "Chat still uses split right pane");
+        AndroidUtilities.tablet = false;
+        check(chat.needPresentFragment(chat.actionBarLayout, new INavigationLayout.NavigationParams(new LoginActivity())), "Phone uses its existing stack");
+        AndroidUtilities.tablet = true;
+
+        Regression r = new Regression();
+        KeyEvent down = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE);
+        KeyEvent up = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ESCAPE);
+        check(r.handleEscapeKey(down) && r.handleEscapeKey(down) && r.closed == 0, "Consume press and repeats without closing");
+        check(r.handleEscapeKey(up) && r.closed == 1, "Release closes viewer once");
+        up.canceled = true;
+        check(r.handleEscapeKey(up) && r.closed == 1, "Canceled release cannot close");
+        up.canceled = false;
+        r.textSelectionHelper.selected = true;
+        r.caption = true;
+        ContentPreviewViewer.instance.visible = true;
+        r.handleEscapeKey(up);
+        check(!r.textSelectionHelper.selected && r.caption && ContentPreviewViewer.instance.visible && r.closed == 1, "Selection closes first");
+        r.handleEscapeKey(up);
+        check(!ContentPreviewViewer.instance.visible && r.caption && r.closed == 1, "Menu closes before caption");
+        r.handleEscapeKey(up);
+        check(!r.caption && r.closed == 1, "Caption closes without viewer");
+        check(!r.handleEscapeKey(null) && !r.handleEscapeKey(new KeyEvent(1, 4)), "Other keys unchanged");
+        System.out.println("PASS: production navigation and Escape regression cases");
+    }
+}
