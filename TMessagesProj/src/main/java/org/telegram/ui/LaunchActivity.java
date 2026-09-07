@@ -57,6 +57,8 @@ import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MotionEvent;
+import android.view.InputDevice;
+import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
@@ -909,6 +911,81 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
             launchLayout = new RelativeLayout(this) {
                 private Insets insets = Insets.NONE;
+                private final android.graphics.Paint dividerPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                private boolean resizingPanes;
+                private float resizeStartX;
+                private int resizeStartWidth;
+                private float resizeStartRatio;
+
+                private boolean canResizePanes() {
+                    return !tabletFullSize && getResources().getConfiguration().screenWidthDp >= 840
+                        && !actionBarLayout.getFragmentStack().isEmpty()
+                        && layersActionBarLayout != null && layersActionBarLayout.getFragmentStack().isEmpty();
+                }
+
+                private boolean isOnPaneDivider(float x) {
+                    return canResizePanes() && Math.abs(x - actionBarLayout.getView().getWidth()) <= dp(6);
+                }
+
+                @Override
+                public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && (resizingPanes || isOnPaneDivider(event.getX(pointerIndex)))) {
+                        return PointerIcon.getSystemIcon(getContext(), PointerIcon.TYPE_HORIZONTAL_DOUBLE_ARROW);
+                    }
+                    return super.onResolvePointerIcon(event, pointerIndex);
+                }
+
+                @Override
+                public boolean onInterceptTouchEvent(MotionEvent event) {
+                    if (event.getActionMasked() == MotionEvent.ACTION_DOWN && isOnPaneDivider(event.getX())
+                        && (!event.isFromSource(InputDevice.SOURCE_MOUSE) || (event.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0)) {
+                        resizingPanes = true;
+                        resizeStartX = event.getRawX();
+                        resizeStartWidth = actionBarLayout.getView().getWidth();
+                        resizeStartRatio = SharedConfig.tabletPaneRatio;
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        invalidate();
+                        return true;
+                    }
+                    return resizingPanes || super.onInterceptTouchEvent(event);
+                }
+
+                private void finishPaneResize(boolean cancel) {
+                    if (cancel) {
+                        SharedConfig.tabletPaneRatio = resizeStartRatio;
+                        requestLayout();
+                    } else {
+                        MessagesController.getGlobalMainSettings().edit().putFloat("tabletPaneRatio", SharedConfig.tabletPaneRatio).apply();
+                    }
+                    resizingPanes = false;
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    invalidate();
+                }
+
+                @Override
+                public boolean onTouchEvent(MotionEvent event) {
+                    if (!resizingPanes) {
+                        return super.onTouchEvent(event);
+                    }
+                    if (!canResizePanes() || event.getActionMasked() == MotionEvent.ACTION_CANCEL
+                        || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+                        finishPaneResize(true);
+                        return true;
+                    }
+                    if (event.getActionMasked() == MotionEvent.ACTION_MOVE || event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        final int contentWidth = Math.max(1, getWidth() - insets.left - insets.right);
+                        SharedConfig.tabletPaneRatio = Math.max(0f, Math.min(1f,
+                            (resizeStartWidth - insets.left + event.getRawX() - resizeStartX) / contentWidth));
+                        final int leftWidth = AndroidUtilities.getTabletLeftFragmentSize(getWidth(), insets.left, insets.right);
+                        SharedConfig.tabletPaneRatio = (float) (leftWidth - insets.left) / contentWidth;
+                        requestLayout();
+                        invalidate();
+                    }
+                    if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                        finishPaneResize(false);
+                    }
+                    return true;
+                }
 
                 {
                     ViewCompat.setOnApplyWindowInsetsListener(this, (v, i) -> {
@@ -983,6 +1060,14 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                         layersActionBarLayout.parentDraw(this, canvas);
                     }
                     super.dispatchDraw(canvas);
+                    if (canResizePanes()) {
+                        final float x = actionBarLayout.getView().getWidth();
+                        dividerPaint.setColor(Theme.getColor(Theme.key_divider));
+                        canvas.drawRect(x - dp(0.5f), insets.top, x + dp(0.5f), getHeight() - insets.bottom, dividerPaint);
+                        dividerPaint.setColor(Theme.getColor(resizingPanes ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhiteGrayText));
+                        final float y = (getHeight() + insets.top - insets.bottom) / 2f;
+                        canvas.drawRoundRect(x - dp(2), y - dp(14), x + dp(2), y + dp(14), dp(2), dp(2), dividerPaint);
+                    }
                 }
             };
             if (i != -1) {

@@ -27,7 +27,10 @@ public class Regression {
     static class AndroidUtilities {
         static boolean tablet = true;
         static boolean isTablet() { return tablet; }
+        static int dp(float value) { return (int)Math.ceil(value); }
+        /* SPLIT_WIDTH */
     }
+    static class SharedConfig { static float tabletPaneRatio = 0.35f; }
     static class ArticleViewer {
         static boolean hasInstance() { return false; }
         static ArticleViewer getInstance() { return new ArticleViewer(); }
@@ -98,6 +101,21 @@ public class Regression {
     /* ESCAPE */
 
     public static void main(String[] args) {
+        check(AndroidUtilities.getTabletLeftFragmentSize(1200, 0, 0) == 420, "Default split preserved");
+        SharedConfig.tabletPaneRatio = 0.6f;
+        check(AndroidUtilities.getTabletLeftFragmentSize(1240, 20, 20) == 740, "Ratio excludes window insets");
+        for (int width : new int[]{0, 480, 640, 840, 1200, 1920}) {
+            for (float ratio : new float[]{0f, 0.2f, 0.35f, 0.6f, 1f}) {
+                SharedConfig.tabletPaneRatio = ratio;
+                int left = AndroidUtilities.getTabletLeftFragmentSize(width, 0, 0);
+                int min = Math.min(320, width / 2);
+                check(left >= min && width - left >= min, "Both panes keep usable minimum widths");
+            }
+        }
+        SharedConfig.tabletPaneRatio = 0.6f;
+        AndroidUtilities.getTabletLeftFragmentSize(480, 0, 0);
+        check(AndroidUtilities.getTabletLeftFragmentSize(1200, 0, 0) == 720, "Temporary narrow window does not lose chosen ratio");
+        SharedConfig.tabletPaneRatio = 0.35f;
         for (boolean full : new boolean[] {false, true}) {
             for (int origin = 0; origin < 3; origin++) {
                 Regression r = new Regression();
@@ -143,6 +161,6 @@ public class Regression {
         r.handleEscapeKey(up);
         check(!r.caption && r.closed == 1, "Caption closes without viewer");
         check(!r.handleEscapeKey(null) && !r.handleEscapeKey(new KeyEvent(1, 4)), "Other keys unchanged");
-        System.out.println("PASS: production navigation and Escape regression cases");
+        System.out.println("PASS: production split widths, navigation and Escape regression cases");
     }
 }

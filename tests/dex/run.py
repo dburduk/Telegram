@@ -21,6 +21,7 @@ def method(path, signature):
 source = (Path(__file__).parent / 'Regression.java.in').read_text()
 source = source.replace('/* ROUTING */', method(ui / 'LaunchActivity.java', 'public boolean needPresentFragment('))
 source = source.replace('/* ESCAPE */', method(ui / 'PhotoViewer.java', 'private boolean handleEscapeKey('))
+source = source.replace('/* SPLIT_WIDTH */', method(ui.parent / 'messenger/AndroidUtilities.java', 'public static int getTabletLeftFragmentSize('))
 for signature in ('public boolean dispatchKeyEvent(', 'public boolean dispatchKeyEventPreIme('):
     assert 'if (handleEscapeKey(event))' in method(ui / 'PhotoViewer.java', signature)
 launch = (ui / 'LaunchActivity.java').read_text()

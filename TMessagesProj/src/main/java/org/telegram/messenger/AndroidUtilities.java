@@ -3009,7 +3009,10 @@ public class AndroidUtilities {
     }
 
     public static int getTabletLeftFragmentSize(final int fullWidth, final int insetLeft, final int insetRight) {
-        return insetLeft + Math.max(dp(320), (fullWidth - insetLeft - insetRight) * 35 / 100);
+        final int contentWidth = Math.max(0, fullWidth - insetLeft - insetRight);
+        final int minPaneWidth = Math.min(dp(320), contentWidth / 2);
+        return insetLeft + Math.max(minPaneWidth, Math.min(contentWidth - minPaneWidth,
+            (int) (contentWidth * SharedConfig.tabletPaneRatio)));
     }
 
     public static int getPhotoSize() {

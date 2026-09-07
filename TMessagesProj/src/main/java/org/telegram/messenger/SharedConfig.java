@@ -216,6 +216,7 @@ public class SharedConfig {
     public static byte[] pushAuthKey;
     public static byte[] pushAuthKeyId;
     public static boolean forceForumTabs;
+    public static float tabletPaneRatio = 0.35f;
     public static boolean fastWallpaperDisabled;
     public static boolean frameMetricsEnabled;
 
@@ -608,6 +609,10 @@ public class SharedConfig {
             useSystemEmoji = preferences.getBoolean("useSystemEmoji", false);
             useSystemBoldFont = preferences.getBoolean("useSystemBoldFont", false);
             forceForumTabs = preferences.getBoolean("forceForumTabs", false);
+            tabletPaneRatio = preferences.getFloat("tabletPaneRatio", 0.35f);
+            if (!(tabletPaneRatio >= 0f && tabletPaneRatio <= 1f)) {
+                tabletPaneRatio = 0.35f;
+            }
             fastWallpaperDisabled = preferences.getBoolean("fastWallpaperDisabled", false);
             frameMetricsEnabled = preferences.getBoolean("frameMetricsEnabled", false);
             if (useSystemBoldFont) {
