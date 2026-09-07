@@ -348,6 +348,8 @@ public abstract class TextSelectionHelper<Cell extends TextSelectionHelper.Selec
         maybeTextY = y;
     }
 
+    private int mouseSelectionAnchor = -1;
+
     public boolean onTouchEvent(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
@@ -380,6 +382,23 @@ public abstract class TextSelectionHelper<Cell extends TextSelectionHelper.Selec
                     }
                     if (offset >= 0 && offset < text.length() && text.charAt(offset) != '\n') {
                         AndroidUtilities.cancelRunOnUIThread(startSelectionRunnable);
+                        if (this instanceof ChatListTextSelectionHelper && event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
+                            && (event.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0) {
+                            // Let links keep their normal click behavior.
+                            if (text instanceof Spanned && ((Spanned) text).getSpans(offset, offset + 1, android.text.style.ClickableSpan.class).length > 0) {
+                                return false;
+                            }
+                            startSelectionRunnable.run();
+                            if (isInSelectionMode()) {
+                                mouseSelectionAnchor = offset;
+                                selectionStart = selectionEnd = offset;
+                                textSelectionOverlay.requestParentDisallowIntercept(true);
+                                hideActions();
+                                invalidate();
+                                return true;
+                            }
+                            return false;
+                        }
                         AndroidUtilities.runOnUIThread(startSelectionRunnable, longpressDelay);
                         tryCapture = true;
                     }
@@ -714,6 +733,7 @@ public abstract class TextSelectionHelper<Cell extends TextSelectionHelper.Selec
     }
 
     public void clear(boolean instant) {
+        mouseSelectionAnchor = -1;
         onExitSelectionMode(instant);
         selectionStart = -1;
         selectionEnd = -1;
@@ -882,6 +902,35 @@ public abstract class TextSelectionHelper<Cell extends TextSelectionHelper.Selec
         @Override
         public boolean onTouchEvent(MotionEvent event) {
             if (!isInSelectionMode()) return false;
+            if (mouseSelectionAnchor >= 0) {
+                int action = event.getActionMasked();
+                if (action == MotionEvent.ACTION_MOVE || action == MotionEvent.ACTION_UP) {
+                    int[] position = getCoordsInParent();
+                    int offset = getCharOffsetFromCord((int) event.getX() - position[0], (int) event.getY() - position[1], textX, textY, selectedView, false);
+                    if (offset >= 0) {
+                        offset = Math.min(offset, getText(selectedView, false).length());
+                        selectionStart = Math.min(mouseSelectionAnchor, offset);
+                        selectionEnd = Math.max(mouseSelectionAnchor, offset);
+                        onOffsetChanged();
+                        TextSelectionHelper.this.invalidate();
+                    }
+                }
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL || event.getPointerCount() > 1) {
+                    mouseSelectionAnchor = -1;
+                    movingHandle = false;
+                    movingDirectionSettling = false;
+                    isOneTouch = false;
+                    requestParentDisallowIntercept(false);
+                    if (action != MotionEvent.ACTION_UP || selectionStart == selectionEnd) {
+                        clear();
+                    } else {
+                        AndroidUtilities.cancelRunOnUIThread(showActionsRunnable);
+                        AndroidUtilities.runOnUIThread(showActionsRunnable);
+                        showHandleViews();
+                    }
+                }
+                return true;
+            }
             if (event.getPointerCount() > 1) {
                 return movingHandle;
             }

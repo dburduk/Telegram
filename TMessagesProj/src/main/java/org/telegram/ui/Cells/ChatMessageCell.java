@@ -5427,7 +5427,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             return false;
         }
 
-        if ((!drawSelectionBackground && currentMessagesGroup == null) || (currentMessagesGroup != null && !delegate.hasSelectedMessages())) {
+        boolean mouseSelection = event.isFromSource(android.view.InputDevice.SOURCE_MOUSE)
+            && (event.getButtonState() & MotionEvent.BUTTON_PRIMARY) != 0;
+        if (!mouseSelection && ((!drawSelectionBackground && currentMessagesGroup == null) || (currentMessagesGroup != null && !delegate.hasSelectedMessages()))) {
             return false;
         }
 

@@ -1,8 +1,8 @@
-name: Build DeX resizable split APK
+name: Build DeX mouse text selection APK
 
 on:
   push:
-    branches: [dex-resizable-split]
+    branches: [dex-mouse-text-selection]
   workflow_dispatch:
 
 permissions:
@@ -35,13 +35,13 @@ jobs:
           mkdir -p out
           mapfile -t apks < <(find TMessagesProj_App/build/outputs/apk -type f -name '*.apk')
           test "${#apks[@]}" -eq 1
-          cp "${apks[0]}" out/telegram-dex-resizable.apk
-          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-resizable.apk
+          cp "${apks[0]}" out/telegram-dex-mouse-selection.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-mouse-selection.apk
           git rev-parse HEAD > out/commit.txt
           cd out
-          sha256sum telegram-dex-resizable.apk > SHA256SUMS.txt
+          sha256sum telegram-dex-mouse-selection.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: telegram-dex-resizable
+          name: telegram-dex-mouse-selection
           path: out/
           if-no-files-found: error
