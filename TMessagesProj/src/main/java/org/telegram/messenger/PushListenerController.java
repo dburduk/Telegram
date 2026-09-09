@@ -1663,6 +1663,7 @@ public class PushListenerController {
     }
 
     public final static class GooglePushListenerServiceProvider implements IPushListenerServiceProvider {
+        private final java.util.concurrent.atomic.AtomicBoolean tokenRequestInFlight = new java.util.concurrent.atomic.AtomicBoolean();
         public final static GooglePushListenerServiceProvider INSTANCE = new GooglePushListenerServiceProvider();
 
         private Boolean hasServices;
@@ -1681,6 +1682,11 @@ public class PushListenerController {
 
         @Override
         public void onRequestPushToken() {
+            if (!tokenRequestInFlight.compareAndSet(false, true)) {
+                PushDiagnostics.record("FCM request already in progress");
+                return;
+            }
+            PushDiagnostics.record("FCM token request started");
             String currentPushString = SharedConfig.pushString;
             if (!TextUtils.isEmpty(currentPushString)) {
                 if (BuildVars.DEBUG_PRIVATE_VERSION && BuildVars.LOGS_ENABLED) {
@@ -1697,8 +1703,10 @@ public class PushListenerController {
                     FirebaseApp.initializeApp(ApplicationLoader.applicationContext);
                     FirebaseMessaging.getInstance().getToken()
                             .addOnCompleteListener(task -> {
+                                tokenRequestInFlight.set(false);
                                 SharedConfig.pushStringGetTimeEnd = SystemClock.elapsedRealtime();
                                 if (!task.isSuccessful()) {
+                                    PushDiagnostics.record("FCM token request failed: " + PushDiagnostics.describe(task.getException()));
                                     if (BuildVars.LOGS_ENABLED) {
                                         FileLog.d("Failed to get regid");
                                     }
@@ -1708,10 +1716,17 @@ public class PushListenerController {
                                 }
                                 String token = task.getResult();
                                 if (!TextUtils.isEmpty(token)) {
+                                    SharedConfig.pushStringStatus = "";
+                                    PushDiagnostics.record("FCM token obtained; registering with Telegram");
                                     PushListenerController.sendRegistrationToServer(getPushType(), token);
+                                } else {
+                                    PushDiagnostics.record("FCM returned an empty token");
                                 }
                             });
                 } catch (Throwable e) {
+                    tokenRequestInFlight.set(false);
+                    SharedConfig.pushStringGetTimeEnd = SystemClock.elapsedRealtime();
+                    PushDiagnostics.record("FCM initialization/request exception: " + PushDiagnostics.describe(e));
                     FileLog.e(e);
                 }
             });

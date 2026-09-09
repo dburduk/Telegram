@@ -34,3 +34,28 @@ with tempfile.TemporaryDirectory() as temp:
     java.write_text(source)
     subprocess.run([tool('javac'), str(java)], check=True)
     subprocess.run([tool('java'), '-cp', temp, 'Regression'], check=True)
+    diagnostic_source = '''public class DiagnosticCases {
+    /* SANITIZE */
+    /* DESCRIBE */
+    static void check(boolean value) { if (!value) throw new AssertionError(); }
+    public static void main(String[] args) {
+        String key = "AIza" + "k".repeat(35);
+        String token = "t".repeat(150);
+        String safe = sanitize("FIS_AUTH_ERROR " + key + " " + token + " https://example.com/private?token=secret");
+        check(safe.contains("FIS_AUTH_ERROR"));
+        check(!safe.contains(key) && !safe.contains(token) && !safe.contains("secret"));
+        String error = describe(new java.io.IOException("SERVICE_NOT_AVAILABLE", new IllegalStateException("FIS_AUTH_ERROR")));
+        check(error.contains("IOException") && error.contains("SERVICE_NOT_AVAILABLE") && error.contains("FIS_AUTH_ERROR"));
+        check(!describe(null).isEmpty());
+        check(sanitize("word ".repeat(500)).length() <= 1000);
+        check(!sanitize("line1\\nline2").contains("\\n"));
+        System.out.println("PASS: push diagnostic error details and redaction");
+    }
+}'''
+    diagnostics = ui.parent / 'messenger/PushDiagnostics.java'
+    diagnostic_source = diagnostic_source.replace('/* SANITIZE */', method(diagnostics, 'public static String sanitize('))
+    diagnostic_source = diagnostic_source.replace('/* DESCRIBE */', method(diagnostics, 'public static String describe('))
+    java = Path(temp) / 'DiagnosticCases.java'
+    java.write_text(diagnostic_source)
+    subprocess.run([tool('javac'), str(java)], check=True)
+    subprocess.run([tool('java'), '-cp', temp, 'DiagnosticCases'], check=True)

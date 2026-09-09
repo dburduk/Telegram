@@ -16199,6 +16199,7 @@ public class MessagesController extends BaseController implements NotificationCe
             SharedConfig.saveConfig();
         }
         TL_account.registerDevice req = new TL_account.registerDevice();
+        PushDiagnostics.record("Telegram push registration started for account slot " + (currentAccount + 1));
         req.token_type = pushType;
         req.token = regid;
         req.no_muted = false;
@@ -16219,9 +16220,13 @@ public class MessagesController extends BaseController implements NotificationCe
                     FileLog.d("account " + currentAccount + " registered for push, push type: " + pushType);
                 }
                 getUserConfig().registeredForPush = true;
+                PushDiagnostics.record("Telegram push registration succeeded for account slot " + (currentAccount + 1));
                 SharedConfig.pushString = regid;
                 SharedConfig.pushType = pushType;
                 getUserConfig().saveConfig(false);
+            }
+            if (!(response instanceof TLRPC.TL_boolTrue)) {
+                PushDiagnostics.record("Telegram push registration failed for account slot " + (currentAccount + 1) + ": " + (error == null ? "unexpected response" : error.code + " " + error.text));
             }
             AndroidUtilities.runOnUIThread(() -> registeringForPush = false);
         });

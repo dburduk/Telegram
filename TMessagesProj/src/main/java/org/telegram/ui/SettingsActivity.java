@@ -745,6 +745,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
             items.add(UItem.asShadow(null));
             items.add(UItem.asHeader(getString(R.string.SettingsDebug)));
+            items.add(SettingCell.Factory.of(24, 0xFF55CA47, 0xFF27B434, 0, "Диагностика уведомлений"));
             items.add(SettingCell.Factory.of(20, 0xFF55CA47, 0xFF27B434, 0, getString(R.string.DebugSendLogs)));
             items.add(SettingCell.Factory.of(21, 0xFF55CA47, 0xFF27B434, 0, getString(R.string.DebugSendLastLogs)));
             items.add(SettingCell.Factory.of(22, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.DebugClearLogs)));
@@ -865,6 +866,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
             case 20:
                 ProfileActivity.sendLogs(getParentActivity(), false);
+                break;
+            case 24:
+                org.telegram.messenger.PushDiagnostics.show(getParentActivity());
                 break;
             case 21:
                 ProfileActivity.sendLogs(getParentActivity(), true);
