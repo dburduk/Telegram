@@ -18,8 +18,8 @@ if firebase.get('project_info', {}).get('project_id') != 'dex-messenger-test':
 clients = firebase.get('client', [])
 if not any(c.get('client_info', {}).get('android_client_info', {}).get('package_name') == 'org.telegram.messenger.beta' for c in clients):
     raise SystemExit('Missing beta Android client configuration')
-api_id = os.environ['DEX_TELEGRAM_API_ID']
-api_hash = os.environ['DEX_TELEGRAM_API_HASH']
+api_id = os.environ['DEX_TELEGRAM_API_ID'].strip()
+api_hash = os.environ['DEX_TELEGRAM_API_HASH'].strip()
 if not api_id.isdecimal() or int(api_id) <= 0 or not re.fullmatch(r'[0-9a-fA-F]{32}', api_hash):
     raise SystemExit('Invalid Telegram API client configuration')
 
