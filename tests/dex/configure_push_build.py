@@ -16,8 +16,9 @@ if 'private_key' in firebase or firebase.get('type') == 'service_account':
 if firebase.get('project_info', {}).get('project_id') != 'dex-messenger-test':
     raise SystemExit('Unexpected Firebase project for this test build')
 clients = firebase.get('client', [])
-if not any(c.get('client_info', {}).get('android_client_info', {}).get('package_name') == 'org.telegram.messenger.beta' for c in clients):
-    raise SystemExit('Missing beta Android client configuration')
+packages = {c.get('client_info', {}).get('android_client_info', {}).get('package_name') for c in clients}
+if not {'org.telegram.messenger', 'org.telegram.messenger.beta'}.issubset(packages):
+    raise SystemExit('Both main and beta Android client configurations are required by the Gradle modules')
 api_id = os.environ['DEX_TELEGRAM_API_ID'].strip()
 api_hash = os.environ['DEX_TELEGRAM_API_HASH'].strip()
 if not api_id.isdecimal() or int(api_id) <= 0 or not re.fullmatch(r'[0-9a-fA-F]{32}', api_hash):

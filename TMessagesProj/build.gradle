@@ -98,16 +98,23 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 }
 
+def dexPrebuiltNativeDir = providers.gradleProperty('dexPrebuiltNativeDir').orNull
+
 android {
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
     ndkVersion "27.2.12479018"
 
-    sourceSets.main.jniLibs.srcDirs = ['./jni/']
+    sourceSets.main.jniLibs.srcDirs = dexPrebuiltNativeDir ? [file(dexPrebuiltNativeDir)] : ['./jni/']
+    if (dexPrebuiltNativeDir != null) {
+        packagingOptions.jniLibs.keepDebugSymbols.add('**/libtmessages.49.so')
+    }
 
-    externalNativeBuild {
-        cmake {
-            path 'jni/CMakeLists.txt'
+    if (dexPrebuiltNativeDir == null) {
+        externalNativeBuild {
+            cmake {
+                path 'jni/CMakeLists.txt'
+            }
         }
     }
 
@@ -133,11 +140,13 @@ android {
 
         multiDexEnabled true
 
-        externalNativeBuild {
-            cmake {
-                version '3.22.1'
-                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-21' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
-                targets 'tmessages.49'
+        if (dexPrebuiltNativeDir == null) {
+            externalNativeBuild {
+                cmake {
+                    version '3.22.1'
+                    arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-21' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+                    targets 'tmessages.49'
+                }
             }
         }
     }

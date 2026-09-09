@@ -26,7 +26,10 @@ android {
 
     defaultConfig.applicationId = APP_PACKAGE
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
+    sourceSets.main.jniLibs.srcDirs = providers.gradleProperty('dexPrebuiltNativeDir').isPresent() ? [] : ['../TMessagesProj/jni/']
+    if (providers.gradleProperty('dexPrebuiltNativeDir').isPresent()) {
+        packagingOptions.jniLibs.keepDebugSymbols.add('**/libtmessages.49.so')
+    }
 
     lintOptions {
         disable 'MissingTranslation'

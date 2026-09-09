@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -33,8 +34,20 @@ jobs:
         run: |
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Validate both Firebase Gradle modules before compilation
+        run: ./gradlew :TMessagesProj:processDebugGoogleServices :TMessagesProj_App:processAfatDebugGoogleServices --no-daemon
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 34337121466
+          name: telegram-dex-push-diagnostics
+          path: ${{ runner.temp }}/dex-native-reference
+      - name: Reuse verified unchanged native libraries
+        run: |
+          git fetch --depth=1 origin 1ebd418cb98ae69c446adacd166af752fae31b34
+          python3 tests/dex/reuse_verified_native.py "$RUNNER_TEMP/dex-native-reference/telegram-dex-push-diagnostics.apk" "$RUNNER_TEMP/dex-native"
       - name: Build test APK
-        run: ./gradlew :TMessagesProj_App:assembleAfatDebug --stacktrace --no-daemon
+        run: ./gradlew :TMessagesProj_App:assembleAfatDebug -PdexPrebuiltNativeDir="$RUNNER_TEMP/dex-native" --stacktrace --no-daemon
       - name: Collect and verify APK
         shell: bash
         run: |
@@ -42,6 +55,7 @@ jobs:
           mapfile -t apks < <(find TMessagesProj_App/build/outputs/apk -type f -name '*.apk')
           test "${#apks[@]}" -eq 1
           cp "${apks[0]}" out/telegram-dex-push-configured.apk
+          python3 tests/dex/reuse_verified_native.py "$RUNNER_TEMP/dex-native-reference/telegram-dex-push-diagnostics.apk" "$RUNNER_TEMP/dex-native" out/telegram-dex-push-configured.apk
           "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-push-configured.apk
           git rev-parse HEAD > out/commit.txt
           cd out
