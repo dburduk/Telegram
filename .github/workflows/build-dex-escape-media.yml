@@ -1,8 +1,8 @@
-name: Build DeX push diagnostics APK
+name: Build DeX configured push APK
 
 on:
   push:
-    branches: [dex-push-diagnostics]
+    branches: [dex-push-configured]
   workflow_dispatch:
 
 permissions:
@@ -22,6 +22,12 @@ jobs:
           java-version: '17'
       - name: Navigation and Escape regression checks
         run: python3 tests/dex/run.py
+      - name: Configure fork notification client
+        env:
+          DEX_GOOGLE_SERVICES_JSON: ${{ secrets.DEX_GOOGLE_SERVICES_JSON }}
+          DEX_TELEGRAM_API_ID: ${{ secrets.DEX_TELEGRAM_API_ID }}
+          DEX_TELEGRAM_API_HASH: ${{ secrets.DEX_TELEGRAM_API_HASH }}
+        run: python3 tests/dex/configure_push_build.py
       - name: Install Android build packages
         shell: bash
         run: |
@@ -35,13 +41,13 @@ jobs:
           mkdir -p out
           mapfile -t apks < <(find TMessagesProj_App/build/outputs/apk -type f -name '*.apk')
           test "${#apks[@]}" -eq 1
-          cp "${apks[0]}" out/telegram-dex-push-diagnostics.apk
-          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-push-diagnostics.apk
+          cp "${apks[0]}" out/telegram-dex-push-configured.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose out/telegram-dex-push-configured.apk
           git rev-parse HEAD > out/commit.txt
           cd out
-          sha256sum telegram-dex-push-diagnostics.apk > SHA256SUMS.txt
+          sha256sum telegram-dex-push-configured.apk > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: telegram-dex-push-diagnostics
+          name: telegram-dex-push-configured
           path: out/
           if-no-files-found: error
